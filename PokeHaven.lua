@@ -5,7 +5,7 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 115,0, 56)
-toggleButton.Position = UDim2.new(0.800, 0,-0.05, 0)
+toggleButton.Position = UDim2.new(0.622, 0,-0.021, 0)
 toggleButton.Text = "Start"
 toggleButton.Parent = screenGui
 
@@ -31,7 +31,7 @@ local function toggleFiring()
                     if not item:FindFirstChild("Handle") then continue end
                     if not item["Handle"]:FindFirstChild("ClickDetector") then continue end
 
-                    if string.find(item.Name,"Jar") or string.find(item.Name,"Trash") or string.find(item.Name,"Ship") or string.find(item.Name,"Vending") or string.find(item.Name,"Chest") or string.find(item.Name,"Box") or string.find(item.Name,"Duffelbag") then continue end
+                    if string.find(item.Name,"Jar") or string.find(item.Name,"Trash") or string.find(item.Name,"Ship") or string.find(item.Name,"Bag") or string.find(item.Name,"Capy") or string.find(item.Name,"Snow") or string.find(item.Name,"Vending") or string.find(item.Name,"Vault") or string.find(item.Name,"Chest") or string.find(item.Name,"Box") or string.find(item.Name,"Bucket") or string.find(item.Name,"Duffelbag") or string.find(item.Name,"Vault") or string.find(item.Name,"Chest") or string.find(item.Name,"Box") or string.find(item.Name,"Bucket") or string.find(item.Name,"Bin") then continue end
                     fireclickdetector(item["Handle"]:FindFirstChild("ClickDetector"))
 
                 end
