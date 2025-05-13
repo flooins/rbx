@@ -1,0 +1,183 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+local lockedTargets = {}  -- Store multiple locked targets
+local hoverHighlight = nil
+local attacking = false
+local damageInterval = 0.1
+local tracerLine = nil
+
+-- Clear previous hover effects
+local function clearHover()
+	if hoverHighlight then
+		hoverHighlight:Destroy()
+		hoverHighlight = nil
+	end
+	if tracerLine then
+		tracerLine:Destroy()
+		tracerLine = nil
+	end
+end
+
+-- Set the hover effect (white outline + tracer)
+local function setHover(targetModel)
+	clearHover()
+	hoverHighlight = Instance.new("Highlight")
+	hoverHighlight.Name = "HoverHighlight"
+	hoverHighlight.FillTransparency = 1
+	hoverHighlight.OutlineTransparency = 0
+	hoverHighlight.OutlineColor = Color3.new(1, 1, 1)
+	hoverHighlight.Adornee = targetModel
+	hoverHighlight.Parent = targetModel
+
+	-- Create the tracer line
+	tracerLine = Instance.new("Beam")
+	local a = Instance.new("Attachment", Camera)
+	local b = Instance.new("Attachment", targetModel:FindFirstChild("HumanoidRootPart") or targetModel:FindFirstChildWhichIsA("BasePart"))
+	tracerLine.Attachment0 = a
+	tracerLine.Attachment1 = b
+	tracerLine.Width0 = 0.5
+	tracerLine.Width1 = 0.5
+	tracerLine.FaceCamera = true
+	tracerLine.Color = ColorSequence.new(Color3.new(1, 1, 1))  -- White color for the tracer line
+	tracerLine.Parent = Camera
+end
+
+-- Clear the highlight effect for a specific target
+local function clearHighlight(targetModel)
+	if targetModel and targetModel:FindFirstChild("TargetHighlight") then
+		targetModel.TargetHighlight:Destroy()
+	end
+end
+
+-- Set the red highlight when target is locked
+local function setHighlight(targetModel)
+	-- If target is already locked, do nothing
+	for _, target in ipairs(lockedTargets) do
+		if target == targetModel then
+			return  -- Target already locked, don't lock it again
+		end
+	end
+
+	-- Add new target to the locked list
+	table.insert(lockedTargets, targetModel)
+
+	-- Set highlight to red
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "TargetHighlight"
+	highlight.FillTransparency = 0.75 -- Fully transparent fill
+	highlight.OutlineTransparency = 0 -- Visible outline
+	highlight.OutlineColor = Color3.new(1, 0, 0) -- Red outline for the locked target
+	highlight.Adornee = targetModel
+	highlight.Parent = targetModel
+end
+
+-- Remove the red highlight when target is unlocked
+local function removeHighlight(targetModel)
+	for i, target in ipairs(lockedTargets) do
+		if target == targetModel then
+			table.remove(lockedTargets, i)
+			clearHighlight(targetModel)
+			print("Unlocked target:", targetModel.Name)
+			break
+		end
+	end
+end
+
+-- Input detection for target selection and toggle attack
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.X then
+		-- If there's a hover highlight, lock on to that target
+		if hoverHighlight and hoverHighlight.Adornee then
+			setHighlight(hoverHighlight.Adornee)
+			clearHover()
+		end
+	elseif input.KeyCode == Enum.KeyCode.V then
+		-- Toggle attacking mode
+		attacking = not attacking
+	elseif input.KeyCode == Enum.KeyCode.C then
+		-- Clear all locked targets and their highlights
+		for _, target in ipairs(lockedTargets) do
+			clearHighlight(target)
+		end
+		lockedTargets = {}
+		print("All targets cleared.")
+	end
+end)
+
+-- Check if a target is dead
+local function isTargetDead(targetModel)
+	if targetModel and targetModel:FindFirstChild("Humanoid") then
+		return targetModel.Humanoid.Health <= 0
+	end
+	return false
+end
+
+-- Loop for detecting the nearest target when mouse is hovering
+RunService.RenderStepped:Connect(function()
+	if lockedTargets and #lockedTargets > 0 then return end
+
+	local mousePos = Mouse.Hit.Position
+	local closest, minDist = nil, math.huge
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local char = player.Character
+			local dist = (char.HumanoidRootPart.Position - mousePos).Magnitude
+			if dist < 10 and dist < minDist then
+				closest = char
+				minDist = dist
+			end
+		end
+	end
+
+	if closest then
+		-- If a player is detected within range, show hover effect
+		if not hoverHighlight or hoverHighlight.Adornee ~= closest then
+			clearHover() -- Clear previous hover effect to ensure only one target is highlighted at a time
+			setHover(closest)
+		end
+	else
+		-- Clear hover effects when no target is nearby
+		clearHover()
+	end
+end)
+
+-- Loop for continuously damaging the locked targets when attacking
+task.spawn(function()
+	while true do
+		task.wait(damageInterval)
+		if attacking then
+			for _, target in ipairs(lockedTargets) do
+				-- Ensure target exists and is not dead
+				if target and target:FindFirstChild("Head") and not isTargetDead(target) then
+					local args = {
+						target,
+						target:FindFirstChild("Head"),
+						7,  -- Damage value
+						"afdijbnladbaulwjbdwaludwa"  -- Custom string
+					}
+					LocalPlayer.Character:WaitForChild("Fists"):WaitForChild("Components"):WaitForChild("Remotes"):WaitForChild("AddDamage"):FireServer(unpack(args))
+				end
+			end
+		end
+	end
+end)
+
+-- Handle target respawn
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		-- Re-check if any locked target has respawned
+		for _, target in ipairs(lockedTargets) do
+			if target == character then
+				print("Target respawned: ", target.Name)
+			end
+		end
+	end)
+end)
